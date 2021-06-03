@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for the Salesforce data handling process through pipeline
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: my-Salesforce-app
+    Description: Salesforce Application
+    Author: user1
+
+Resources:
+  # STEP FUNCTIONS
+  SalesforceCreateOpportunityStateMachine:
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
+    Properties:
+      DefinitionUri: statemachine/SalesforceCreateOpportunity.asl.json
+      DefinitionSubstitutions:
+        SalesforceCreateOpportunityArn: !GetAtt SalesforceCreateOpportunity.Arn
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+        - LambdaInvokePolicy:
+            FunctionName: !Ref SalesforceCreateOpportunity
+  
+  SalesforceUpdateOpportunityStateMachine:
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
+    Properties:
+      DefinitionUri: statemachine/SalesforceUpdateOpportunity.asl.json
+      DefinitionSubstitutions:
+        SalesforceUpdateOpportunityArn: !GetAtt SalesforceUpdateOpportunity.Arn
+      Policies: 
+        - LambdaInvokePolicy:
+            FunctionName: !Ref SalesforceUpdateOpportunity
+  
+  # LAMBDA FOR STEP Function
+  SalesforceCreateOpportunity:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: functions/createOpportunity/
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+        - CloudWatchPutMetricPolicy: {}
+      Environment:
+        Variables:
+          salesforceToken: 'Bearer 00D5g000005GCIC!ARMAQC5Ao4A3cOiaX.xovzOYNN1RkK9BxBiOG5tIuKDEMxJ4qJTh.95_jVupwbabffdIP2RHncwtEHp5WhfsIKeYpSepjVAw'
+          salesforceURL: 'https://somecompany77-dev-ed.my.salesforce.com'
+
+  SalesforceUpdateOpportunity:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: functions/updateOpportunity/
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Policies:
+        - CloudWatchPutMetricPolicy: {}
+      Environment:
+        Variables:
+          salesforceToken: 'Bearer 00D5g000005GCIC!ARMAQC5Ao4A3cOiaX.xovzOYNN1RkK9BxBiOG5tIuKDEMxJ4qJTh.95_jVupwbabffdIP2RHncwtEHp5WhfsIKeYpSepjVAw'
+          salesforceURL: 'https://somecompany77-dev-ed.my.salesforce.com'
+
+  # COMMON COMPONENTS
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: stage
+      EndpointConfiguration:
+        Type: REGIONAL
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          title: "Salesforce API"
+          description: API for handling Salesforce events
+        paths:
+          /createOpportunity:
+            post:
+              responses:
+                "200":
+                  description: "200 response"
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${processDataforCreateOpportunity.Arn}/invocations 
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws"
+          /updateOpportunity:
+            post:
+              responses:
+                "200":
+                  description: "200 response"
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${processDataforUpdateOpportunity.Arn}/invocations 
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws"
+  
+  # Lambda to accept request & process data for Step Function
+  processDataforCreateOpportunity:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: functions/processDataforCreateOpportunity/
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Policies: 
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt SalesforceCreateOpportunityStateMachine.Name
+        - CloudWatchPutMetricPolicy: {}
+      Events:
+        LambdaAPIGateway:
+          Type: Api
+          Properties:
+            Path: '/createOpportunity'
+            Method: post
+            RestApiId:
+              Ref: ApiGateway
+      Environment:
+        Variables:
+          stepFunctionToBeCalled: 
+            !GetAtt SalesforceCreateOpportunityStateMachine.Arn
+
+  processDataforUpdateOpportunity:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: functions/processDataforUpdateOpportunity/
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Policies: 
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt SalesforceUpdateOpportunityStateMachine.Name
+        - CloudWatchPutMetricPolicy: {}
+      Events:
+        LambdaAPIGateway:
+          Type: Api
+          Properties:
+            Path: '/updateOpportunity'
+            Method: post
+            RestApiId:
+              Ref: ApiGateway
+      Environment:
+        Variables:
+          stepFunctionToBeCalled: 
+            !GetAtt SalesforceUpdateOpportunityStateMachine.Arn

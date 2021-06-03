@@ -1,0 +1,14 @@
+{
+  "name": "intercom",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.892.0",
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6"
+  }
+}

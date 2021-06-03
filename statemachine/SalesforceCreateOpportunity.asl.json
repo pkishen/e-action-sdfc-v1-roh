@@ -1,0 +1,15 @@
+{
+    "Comment": "Step Function to handle the Salesforce events",
+    "StartAt": "SalesforceCreateOpportunity",
+    "States": {
+       "SalesforceCreateOpportunity": {
+              "Type": "Task",
+              "Resource": "${SalesforceCreateOpportunityArn}", 
+              "Next": "FinalState"
+          },
+       "FinalState": {
+              "Type": "Pass",
+              "End": true
+          }
+    }
+  }

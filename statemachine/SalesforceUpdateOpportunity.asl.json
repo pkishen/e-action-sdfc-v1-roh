@@ -1,0 +1,15 @@
+{
+    "Comment": "Step Function to handle the Salesforce events",
+    "StartAt": "SalesforceUpdateOpportunity",
+    "States": {
+       "SalesforceUpdateOpportunity": {
+              "Type": "Task",
+              "Resource": "${SalesforceUpdateOpportunityArn}", 
+              "Next": "FinalState"
+          },
+       "FinalState": {
+              "Type": "Pass",
+              "End": true
+          }
+    }
+  }
